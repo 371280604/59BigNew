@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>文章列表</title>
+    <title>我的文章列表</title>
     <link rel="stylesheet" href="./libs/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/iconfont.css">
@@ -51,5 +51,164 @@
             </table>
         </div>
     </div>
+    <!-- 模态框 -->
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="exampleModalLabel">文章类别管理</h4>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <label for="recipient-name" class="control-label">分类名称:</label>
+                            <input type="text" class="form-control" id="recipient-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="message-text" class="control-label">分类描述:</label>
+                            <input class="form-control" id="message-text">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default btn-cancel" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </html>
+<!-- 模板引擎 -->
+<script id="cat_list" type="text/html">
+    {{each data v}}
+     <tr>
+        <td>{{v.name}}</td>
+        <td>{{v.slug}}</td>
+        <td class="text-center">
+            <a data-id="{{v.id}}" href="javascript:void(0);" data-toggle="modal" class=" btn btn-info btn-xs" data-target="#myModal">编辑</a>
+            <a data-id="{{v.id}}" href="javascript:void(0);" class="btn btn-danger btn-xs btn-delete">删除</a>
+        </td>
+    </tr>
+    {{/each}}
+</script>
+<script src="./libs/http.js"></script>
+<script>
+    //入口函数
+    $(function () {
+        // 页面一加载 ajax请求所有的文章分类
+        $.ajax({
+            url: BigNew.category_list,
+            type: 'get',
+            dataType: 'json',
+            success: function (backData) {
+                //服务器响应之后渲染页面
+                $('table>tbody').html(template('cat_list', backData))
+            }
+        });
+        /* 文章类别 新增与编辑思路难点总结
+        1模态框复用 点击新增和编辑弹出是同一个模态框
+        2新增和编辑业务逻辑不通
+            新增 模态框确认按钮 显示 新增
+            编辑 模态框确认按钮 显示 编辑
+            传值 模态框显示当前编辑的分类信息
+
+            模态框按钮点击事件 
+                取消 表单清空 模态框消失
+                确认 新增 ajax 
+                编辑 编辑 ajax
+         */
+
+        //给模态框注册点击事件 : 获取弹出事件源
+        $('#myModal').on('show.bs.modal', function (e) {
+            console.log(e.relatedTarget);
+            //模态框事件触发源 谁点击的是谁弹出来的模态框
+            if ($(e.relatedTarget).text() == '新增分类') {
+                //新增业务逻辑
+                // 修改模态框按钮为新增
+                $('.btn-primary').text('新增')
+            } else {
+                //编辑业务逻辑
+                //修改模态框确认键位编辑
+                $('.btn-primary').text('编辑')
+                //传值 : 显示当前编辑的文章分类信息
+                //1 模态框弹出时显示第一行的分类名  编辑按钮的父元素的文本值
+                $('#recipient-name').val($(e.relatedTarget).parent().prev().prev().text());
+                //2 模态框弹出时显示第二行的分类描述 编辑按钮的父元素的文本值
+                $('#message-text').val($(e.relatedTarget).parent().prev().text())
+                //3 传值 将点前点击的编辑按钮的自定义值 传给模态框的编辑按钮
+                $('.btn-primary').attr('data-id', $(e.relatedTarget).attr('data-id'))
+            }
+        })
+        //模态框取消按钮 充值文本为空
+        $('.btn-cancel').click(function () {
+            //清空表单 
+            $('.modal-body>form')[0].reset()
+        })
+        //模态框确认按钮 
+        $('.btn-primary').click(function () {
+            if ($(this).text() == '新增') {
+                //提交新增ajax请求
+                $.ajax({
+                    url: BigNew.category_add,
+                    type: 'post',
+                    dataType: 'json',
+                    data: {
+                        name: $('#recipient-name').val(),
+                        slug: $('#message-text').val()
+                    },
+                    success: function (backData) {
+                        if (backData.code == 201) {
+                            alert('新增成功');
+                            window.location.reload()
+                        } else {
+                            alert(backData.msg);
+                        }
+                    }
+                });
+            } else {
+                //不是新增文本 即为编辑文本 发送编辑ajax请求
+                $.ajax({
+                    url: BigNew.category_edit,
+                    type: 'post',
+                    dataType: 'json',
+                    data: {
+                        id: $(this).attr('data-id'),
+                        name: $('#recipient-name').val(),
+                        slug: $('#message-text').val()
+                    },
+                    success: function (backData) {
+                        if(backData.code == 200) {
+                            alert('修改成功');
+                            //修改成功后刷新当前页面
+                            window.location.reload()
+                        }
+                    }
+                });
+            }
+        })
+        //删除操作
+        //注意点 删除按钮是ajax动态添加的 需要注册委托事件 
+        $('table>tbody').on('click','.btn-delete',function () {
+            //获取当前点击的按钮的data-id
+            let id= $(this).attr('data-id');
+            //发送ajax请求
+            $.ajax({
+                url: BigNew.category_delete,
+                type:'post',
+                dataType:'json',
+                data:{id:id},
+                success: function(backData){
+                    if(backData.code == 204) {
+                        alert('删除成功');
+                        //删除成功刷新当前页面
+                        window.location.reload()
+                    }
+                }
+            });
+        })
+
+    })
+</script>
