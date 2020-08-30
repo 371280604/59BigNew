@@ -10,10 +10,15 @@
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/iconfont.css">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="./jedate/css/jeDate-test.css">
+    <link rel="stylesheet" href="./jedate/css/jeDate.css">
+    <script src="./jedate/js/jedate.js"></script>
+    <script src="./libs/wangEditor.min.js"></script>
     <!-- jq -->
     <script src="./libs/jquery-1.12.4.min.js"></script>
     <!-- 模板引擎 -->
     <script src="./libs/template-web.js"></script>
+    <script src="./libs/http.js"></script>
 </head>
 
 <body>
@@ -51,11 +56,18 @@
                 <div class="form-group">
                     <label class="col-sm-2 control-label">发布时间：</label>
                     <div class="col-sm-4">
+                        <div class="jeinpbox">
+                            <input type="text" class="jeinput" id="testico" placeholder="YYYY-MM-DD">
+                            <div class="icons jebtns"
+                                onclick="jeDate('#testico',{trigger:false,format: 'YYYY-MM-DD', zIndex:10001})">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="inputEmail3" class="col-sm-2 control-label">文章内容：</label>
                     <div class="col-sm-10">
+                        <div id="editor"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -70,3 +82,89 @@
 </body>
 
 </html>
+<script id="cat_list" type="text/html">
+    {{each data v}}
+    <option value="{{v.id}}">{{v.name}}</option>
+    {{/each}}
+</script>
+<script>
+    $(function () {
+        jeDate('#testico', {
+            trigger: 'click',
+            format: "YYYY-MM-DD",
+            isShow: true,    //是否显示日历面板  
+            multiPane: true,//false :双面板  true:单面板
+            isinitVal: true,//显示默认时间
+            theme: { bgcolor: "#ffff00", color: "#ff0000", pnColor: "#ee2388" },
+            festival: true,//是否显示农历
+            zIndex: 10001
+        });
+        let E = window.wangEditor
+        let editor = new E('#editor')
+        // 或者 var editor = new E( document.getElementById('editor') )
+        editor.create();
+
+        let id = window.location.href.split('=')[1];
+
+        $.ajax({
+            url: BigNew.category_list,
+            type: 'get',
+            dataType: 'json',
+            success: function (backData) {
+                $('.category').html(template('cat_list', backData));
+                getArticleDetail();
+            }
+        });
+
+        function getArticleDetail() {
+            $.ajax({
+                url: BigNew.article_search,
+                type: 'get',
+                dataType: 'json',
+                data: { id: id },
+                success: function (backData) {
+                    $('.title').val(backData.data.title);
+                    $('.article_cover').attr('src', backData.data.cover);
+                    $('.category').val(backData.data.categoryId);
+                    $('#testico').val(backData.data.date);
+                    editor.txt.html(backData.data.content)
+                }
+            });
+        };
+
+        //1.给file表单元素注册onchange事件
+        $('#inputCover').change(function () {
+            //1.2 获取用户选择的图片
+            let file = this.files[0];
+            //1.3 将文件转为src路径
+            let url = URL.createObjectURL(file);
+            //1.4 将url路径赋值给img标签的src
+            $('.article_cover').attr('src', url);
+        });
+
+        $('.btn-edit,.btn-draft').on('click', function (e) {
+            //禁用表单默认提交事件
+            e.preventDefault();
+            //创建FormData对象：参数是表单dom对象
+            let fd = new FormData($('form')[0]);
+            fd.append('id', id);
+            fd.append('date', $('#testico').val())
+            fd.append('content', editor.txt.html())
+            fd.append('state', $(this).text() == '修改' ? '已发布' : '草稿')
+            $.ajax({
+                url: BigNew.article_edit,
+                type: 'post',
+                dataType: 'json',
+                data: fd,
+                contentType: false,
+                processData: false,
+                success: function (backData) {
+                    if (backData.code == 200) {
+                        alert('编辑成功');
+                        window.location = './article_list.html'
+                    }
+                }
+            });
+        });
+    })
+</script>

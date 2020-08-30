@@ -83,6 +83,12 @@
 </body>
 
 </html>
+<script id="cat_list" type="text/html">
+    {{each data v}}
+        <option value="{{v.id}}">{{v.name}}</option>
+    {{/each}}
+</script>
+<script src="./libs/http.js"></script>
 
 <script>
     //入口函数
@@ -108,13 +114,84 @@
     editor.create();
 
     // 1 获取从文章列表页 传递过来的文章id
-
+    let id = window.location.href.split('=')[1];
 
     // 2 先加载所有的文章分类列表
+    $.ajax({
+        url: BigNew.category_list,
+        type: 'get',
+        dataType: 'json',
+        success: function (backData) {
+            // console.log(backData);
+            // 渲染模板引擎 添加id和name
+            $('.category').html(template('cat_list', backData))
+            //先等文章分类加载完成 再加载文章详情
+            geiArticleDetail()
+        }
+    });
 
     // 3 ajax请求文章详细信息 
+    //封装ajax请求文章详细信息
+    function geiArticleDetail() {
+        $.ajax({
+            url: BigNew.article_search,
+            type: 'get',
+            dataType: 'json',
+            data: { id: id },
+            success: function (backData) {
+                //渲染文章详细信息
+                $('.title').val(backData.data.title);
+                $('.article_cover').attr('src', backData.data.cover);
+                $('.category').val(backData.data.categoryId);
+                $('#testioc').val(backData.date);
+                //富文本编辑器需要用到自己的语法
+                editor.txt.html(backData.data.content)
+            }
+        });
+    }
 
     // 4 文件预览 
 
+    //1.给file表单元素注册onchange事件
+    $('#inputCover').change(function () {
+        //1.2 获取用户选择的图片
+        let file = this.files[0];
+        //1.3 将文件转为src路径
+        let url = URL.createObjectURL(file);
+        //1.4 将url路径赋值给img标签的src
+        $('.article_cover').attr('src', url);
+    });
+
     // 5 文件提交 : 已发布 / 草稿
+    // 点击修改和草稿按钮都可以修改文章 只是参数不同 
+    // 解决方案 采用并集事件 再采用三元表达式
+    $('.btn-edit,.btn-draft').on('click', function (e) {
+        //禁用表单默认提交事件
+        e.preventDefault();
+        //创建FormData对象：参数是表单dom对象
+        let fd = new FormData($('form')[0])
+        //farodata默认只能获取有name属性的表单值
+        //其他参数可以获取不到 可以用append方式追加
+        fd.append('id', id),
+            fd.append('date', $('#testico').val()),
+            fd.append('content', editor.txt.html())
+        fd.append('state', $(this).text() == '修改' ? '已发布' : '草稿')
+        $.ajax({
+            url: BigNew.article_edit,
+            type: 'post',
+            dataType: 'json',
+            data: fd,
+            contentType: false,
+            processData: false,
+            success: function (backData) {
+                if (backData.code == 200) {
+                    alert('修改成功');
+                    window.location.href = './me_article_list.html';
+                    
+                }
+            }
+        });
+
+
+    });
 </script>
