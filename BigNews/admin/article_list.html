@@ -101,6 +101,9 @@
 <script src="./libs/http.js"></script>
 <script>
     $(function () {
+        $('#release_btn').click(function () {
+            $('.level02>li:eq(1)', window.parent.document).click()
+        })
         $.ajax({
             url: BigNew.category_list,
             type: 'get',
